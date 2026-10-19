@@ -506,7 +506,7 @@ pub fn artcraft_logo(ui: &mut egui::Ui, height: f32) -> Response {
 
 pub fn artcraft_mark(ui: &mut egui::Ui, size: f32) -> Response {
     ui.add(
-        egui::Image::from_bytes("bytes://pdf-glass-128.png", include_bytes!("../../../assets/app-icon/pdf-glass/icon-128.png"))
+        egui::Image::from_bytes("bytes://pdf-glass.svg", include_bytes!("../../../assets/app-icon/pdf-glass/source.svg"))
             .fit_to_exact_size(vec2(size, size))
             .corner_radius(egui::CornerRadius::same(4))
             .alt_text("PDF"),
