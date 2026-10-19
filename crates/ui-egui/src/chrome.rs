@@ -62,7 +62,6 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     });
                     ui.add_space(window_controls::SIDE_GAP - 4.0);
                 }
-                widgets::artcraft_mark(ui, 24.0);
                 if icons::button(ui, "house", button, app.active.is_none() && !app.combine_showing(), tl!("Home")).clicked() {
                     app.active = None;
                     app.combine_tab.focused = false;
