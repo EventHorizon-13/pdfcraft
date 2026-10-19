@@ -1,0 +1,47 @@
+name: Upstream main Web test
+on:
+  push:
+    branches: [chore/web-main-4db6ac4-20261019]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_JOBS: "2"
+      CARGO_INCREMENTAL: "0"
+      PDFCRAFT_BUILD_SHA: 4db6ac4ae2448df6389d8bb0bc54db6ba175721c
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: storytold/pdfcraft
+          ref: 4db6ac4ae2448df6389d8bb0bc54db6ba175721c
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.95.0"
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: upstream-web
+      - uses: storytold/craft-common-actions/actions/install-trunk@main
+        with:
+          trunk-version: "0.21.14"
+      - name: Build unmodified upstream Web package
+        run: |
+          test "$(git rev-parse HEAD)" = "4db6ac4ae2448df6389d8bb0bc54db6ba175721c"
+          bash packaging/web/package.sh
+          printf 'repository=storytold/pdfcraft\ncommit=4db6ac4ae2448df6389d8bb0bc54db6ba175721c\n' > dist/release/SOURCE.txt
+          cd dist/release
+          sha256sum pdfcraft-web-*.zip > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdfcraft-upstream-main-4db6ac4-web
+          path: |
+            dist/release/pdfcraft-web-*.zip
+            dist/release/SOURCE.txt
+            dist/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
