@@ -499,23 +499,17 @@ pub fn progress_notice(app: &PdfCraftApp, ctx: &egui::Context) -> bool {
     cancel
 }
 
-/// The ArtCraft wordmark (Storyteller's brand, docs/brand/; not open source), sized to `height`.
+/// This deployment's contributor-original PDF mark, shared by Home and About.
 pub fn artcraft_logo(ui: &mut egui::Ui, height: f32) -> Response {
-    let dark = ui.visuals().dark_mode;
-    let (uri, bytes): (&str, &'static [u8]) = if dark {
-        ("bytes://artcraft-logo-white.svg", include_bytes!("../../../docs/brand/artcraft-logo-white.svg"))
-    } else {
-        ("bytes://artcraft-logo.svg", include_bytes!("../../../docs/brand/artcraft-logo.svg"))
-    };
-    ui.add(egui::Image::from_bytes(uri, bytes).max_height(height).alt_text("ArtCraft"))
+    artcraft_mark(ui, height)
 }
 
-/// The ArtCraft mark (brand blue, works on light and dark), `size` points square.
 pub fn artcraft_mark(ui: &mut egui::Ui, size: f32) -> Response {
     ui.add(
-        egui::Image::from_bytes("bytes://artcraft-mark.svg", include_bytes!("../../../docs/brand/artcraft-mark.svg"))
+        egui::Image::from_bytes("bytes://pdf-glass-128.png", include_bytes!("../../../assets/app-icon/pdf-glass/icon-128.png"))
             .fit_to_exact_size(vec2(size, size))
-            .alt_text("ArtCraft"),
+            .corner_radius(egui::CornerRadius::same(4))
+            .alt_text("PDF"),
     )
 }
 

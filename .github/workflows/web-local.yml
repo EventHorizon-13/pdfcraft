@@ -1,0 +1,97 @@
+name: Local Chinese Web and PDF icon
+on:
+  push:
+    branches: [fix/web-chinese-pdf-icon-20261019]
+    paths-ignore: [ATTRIBUTION.md]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_JOBS: "2"
+      CARGO_INCREMENTAL: "0"
+      CRAFT_FONTS_DIR: ${{ github.workspace }}/.craft-fonts
+      CRAFT_FONTS_REQUIRED: "1"
+      PDFCRAFT_CHINESE_REQUIRED: "1"
+      PDFCRAFT_BUILD_LABEL: "local.zh.pdf"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: storytold/craft-fonts
+          ref: 3d9ab3a132ed0eff457e424226a435a901da30d3
+          path: .craft-fonts
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.95.0"
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: upstream-web
+      - uses: storytold/craft-common-actions/actions/install-trunk@main
+        with:
+          trunk-version: "0.21.14"
+      - name: Fetch pinned Apache-2.0 Chinese build input
+        shell: python
+        run: |
+          from pathlib import Path
+          import urllib.request,hashlib,json
+          root=Path(".craft-fonts")
+          dest=root/"fonts/droid-cjk";dest.mkdir()
+          commit="1aed5ea2dcf7cb0bf35635f378b2326461ba0df0"
+          base="https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/"+commit+"/data/fonts/"
+          records=[]
+          for name,expected in [("DroidSansFallbackFull.ttf","a9df00585a4e44cf91238b7b31385e7e36e1dea7"),("NOTICE","c5b1efa7aac764ae6d8da63476a2d5cec02a6a5d")]:
+              data=urllib.request.urlopen(base+name,timeout=90).read()
+              blob=hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest()
+              assert blob==expected, name
+              (dest/name).write_bytes(data)
+              records.append(dict(name=name,source=base+name,git_blob=blob,sha256=hashlib.sha256(data).hexdigest()))
+          digest=records[0]["sha256"]
+          with (root/"fonts/manifest.txt").open("a") as f:
+              f.write("\nDroid Sans Fallback Full | Regular | fonts/droid-cjk/DroidSansFallbackFull.ttf | Hans,Latn | Apache-2.0 | fonts/droid-cjk/NOTICE | "+digest+" | "+base+"DroidSansFallbackFull.ttf\n")
+          Path("font-source.json").write_text(json.dumps(records,indent=2)+"\n")
+      - name: Verify actual wasm font generation and its regression
+        run: |
+          rustc crates/fonts/build.rs -o /tmp/font-build
+          mkdir /tmp/fonts-after /tmp/fonts-before
+          CARGO_CFG_TARGET_ARCH=wasm32 OUT_DIR=/tmp/fonts-after /tmp/font-build
+          grep -q 'family: "Droid Sans Fallback Full"' /tmp/fonts-after/craft_fonts.rs
+          git show 4db6ac4ae2448df6389d8bb0bc54db6ba175721c:crates/fonts/build.rs > /tmp/font-build-before.rs
+          rustc /tmp/font-build-before.rs -o /tmp/font-build-before
+          CARGO_CFG_TARGET_ARCH=wasm32 OUT_DIR=/tmp/fonts-before /tmp/font-build-before
+          if grep -q 'family: "Droid Sans Fallback Full"' /tmp/fonts-before/craft_fonts.rs; then exit 1; fi
+      - name: Check Chinese catalog glyph coverage and asset attribution
+        run: |
+          cargo test --locked -p pdfcraft-fonts --test web_chinese -- --nocapture
+          cargo xtask assets --write
+          cargo xtask assets
+      - name: Build Web package
+        run: |
+          export PDFCRAFT_BUILD_SHA="$(git rev-parse HEAD)"
+          cd apps/pdfcraft-web
+          trunk build --release
+          cd ../..
+          cp .craft-fonts/fonts/droid-cjk/NOTICE dist/web/NOTICE-DroidSansFallback.txt
+          cp font-source.json dist/web/font-source.json
+          bash packaging/web/package.sh --skip-build
+          printf 'repository=EventHorizon-13/pdfcraft\ncommit=%s\nupstream=4db6ac4ae2448df6389d8bb0bc54db6ba175721c\n' "$(git rev-parse HEAD)" > dist/release/SOURCE.txt
+          cp ATTRIBUTION.md dist/release/ATTRIBUTION.md
+          cd dist/release
+          sha256sum pdfcraft-web-*.zip > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pdfcraft-chinese-pdf-icon-web
+          path: |
+            dist/release/pdfcraft-web-*.zip
+            dist/release/SOURCE.txt
+            dist/release/SHA256SUMS.txt
+            dist/release/ATTRIBUTION.md
+          if-no-files-found: error
+          retention-days: 30
